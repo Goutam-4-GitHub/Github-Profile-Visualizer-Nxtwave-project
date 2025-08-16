@@ -1,0 +1,20 @@
+{
+  "files": {
+    "main.css": "/Github-Profile-Visualizer-Nxtwave-project/static/css/main.c1d2df59.chunk.css",
+    "main.js": "/Github-Profile-Visualizer-Nxtwave-project/static/js/main.e8e989ea.chunk.js",
+    "main.js.map": "/Github-Profile-Visualizer-Nxtwave-project/static/js/main.e8e989ea.chunk.js.map",
+    "runtime-main.js": "/Github-Profile-Visualizer-Nxtwave-project/static/js/runtime-main.8d51ec4d.js",
+    "runtime-main.js.map": "/Github-Profile-Visualizer-Nxtwave-project/static/js/runtime-main.8d51ec4d.js.map",
+    "static/js/2.bf31f48d.chunk.js": "/Github-Profile-Visualizer-Nxtwave-project/static/js/2.bf31f48d.chunk.js",
+    "static/js/2.bf31f48d.chunk.js.map": "/Github-Profile-Visualizer-Nxtwave-project/static/js/2.bf31f48d.chunk.js.map",
+    "index.html": "/Github-Profile-Visualizer-Nxtwave-project/index.html",
+    "static/css/main.c1d2df59.chunk.css.map": "/Github-Profile-Visualizer-Nxtwave-project/static/css/main.c1d2df59.chunk.css.map",
+    "static/js/2.bf31f48d.chunk.js.LICENSE.txt": "/Github-Profile-Visualizer-Nxtwave-project/static/js/2.bf31f48d.chunk.js.LICENSE.txt"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.8d51ec4d.js",
+    "static/js/2.bf31f48d.chunk.js",
+    "static/css/main.c1d2df59.chunk.css",
+    "static/js/main.e8e989ea.chunk.js"
+  ]
+}
