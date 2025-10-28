@@ -6,6 +6,8 @@ import Contributors from '../Contributors'
 import Piechart from '../Piechart'
 import './index.css'
 
+const API_BASE = 'https://apis2.ccbp.in/gpv'
+
 const apiStatusConstants = {
   initial: 'INITIAL',
   success: 'SUCCESS',
@@ -17,12 +19,16 @@ class RepositoryItemDetails extends Component {
   state = {
     repositoryItemDetailsList: {},
     apiStatus: apiStatusConstants.initial,
-    isValidUser: true, // To handle the case of invalid or empty username
+    isValidUser: true,
   }
 
   componentDidMount() {
-    const {username} = this.props
-    if (username) {
+    const {username: propUsername} = this.props
+    const stored = localStorage.getItem('gpv_username') || ''
+    const effectiveUser =
+      propUsername && propUsername.trim() ? propUsername : stored
+
+    if (effectiveUser) {
       this.getGitHubUserRepositoryItemDetails()
     } else {
       this.setState({isValidUser: false})
@@ -30,15 +36,32 @@ class RepositoryItemDetails extends Component {
   }
 
   getGitHubUserRepositoryItemDetails = async () => {
-    const {username, repoName} = this.props
+    const {username: propUsername, repoName} = this.props
+    const usernameRaw =
+      (propUsername && propUsername.trim()) ||
+      localStorage.getItem('gpv_username') ||
+      ''
 
     this.setState({apiStatus: apiStatusConstants.inProgress})
 
-    const apiKey = process.env.REACT_APP_GITHUB_API_KEY
-    const url = `https://apis2.ccbp.in/gpv/specific-repo/${username}/${repoName}?api_key=${apiKey}`
-    const options = {
-      method: 'GET',
+    const apiKey = process.env.REACT_APP_GPV_API_KEY
+    const usernameSafe = encodeURIComponent(
+      (usernameRaw || '').trim().toLowerCase(),
+    )
+    const repoSafe = encodeURIComponent((repoName || '').trim())
+
+    if (!apiKey) {
+      console.error('Define REACT_APP_GPV_API_KEY in .env')
+      this.setState({apiStatus: apiStatusConstants.failure})
+      return
     }
+    if (!usernameSafe || !repoSafe) {
+      this.setState({apiStatus: apiStatusConstants.failure})
+      return
+    }
+
+    const url = `${API_BASE}/specific-repo/${usernameSafe}/${repoSafe}?api_key=${apiKey}`
+    const options = {method: 'GET'}
 
     try {
       const response = await fetch(url, options)
@@ -47,12 +70,15 @@ class RepositoryItemDetails extends Component {
         const updatedData = {
           name: data.name,
           description: data.description,
-          languages: data.lanuages,
+          languages: (data.languages || data.lanuages || []).map(l => ({
+            name: l.name,
+            value: l.value,
+          })),
           stargazersCount: data.stargazers_count,
           forksCount: data.forks_count,
           commitsCount: data.network_count,
           issuesCount: data.open_issues_count,
-          contributors: data.contributors.map(contributor =>
+          contributors: (data.contributors || []).map(contributor =>
             this.getContributors(contributor),
           ),
           owner: this.getOwner(data.owner),

@@ -4,9 +4,13 @@ import {HiOutlineSearch} from 'react-icons/hi'
 import {RiBuildingLine} from 'react-icons/ri'
 import {IoLocationOutline} from 'react-icons/io5'
 import {IoMdLink} from 'react-icons/io'
+
 import UsernameContext from '../../context/UsernameContext'
 import Header from '../Header'
+
 import './index.css'
+
+const API_BASE = 'https://apis2.ccbp.in/gpv'
 
 const apiStatusConstants = {
   initial: 'INITIAL',
@@ -22,94 +26,154 @@ class Home extends Component {
     errorMsg: '',
   }
 
-  getGitHubUserProfileDetails = async username => {
-    this.setState({apiStatus: apiStatusConstants.inProgress})
+  componentDidMount() {
+    // If there's already a username stored in localStorage, try to fetch automatically
+    const stored = localStorage.getItem('gpv_username') || ''
+    if (stored) {
+      this.getGitHubUserProfileDetails(stored)
+    }
+  }
 
-    const apiKey = process.env.REACT_APP_GITHUB_API_KEY
-    const GitHubUserProfileUrl = `https://apis2.ccbp.in/gpv/profile-details/${username}?api_key=${apiKey}`
+  getGitHubUserProfileDetails = async usernameArg => {
+    // usernameArg can be passed explicitly from onClickSearch or null (we'll resolve from context/local storage)
+    this.setState({apiStatus: apiStatusConstants.inProgress, errorMsg: ''})
+
+    const apiKey = process.env.REACT_APP_GPV_API_KEY
+    const propUsername = usernameArg || ''
+    const stored = localStorage.getItem('gpv_username') || ''
+    const usernameResolved =
+      propUsername && propUsername.trim() ? propUsername.trim() : stored.trim()
+
+    if (!apiKey) {
+      // Missing API key -> show friendly message
+      this.setState({
+        apiStatus: apiStatusConstants.failure,
+        errorMsg: 'Missing API key. Define REACT_APP_GPV_API_KEY in your .env',
+      })
+      return
+    }
+
+    if (!usernameResolved) {
+      this.setState({
+        apiStatus: apiStatusConstants.initial,
+        errorMsg: 'Enter a valid GitHub username.',
+        profileDetails: [],
+      })
+      return
+    }
+
+    // persist selected username so other routes can use it
+    try {
+      localStorage.setItem('gpv_username', usernameResolved)
+    } catch {
+      // ignore localStorage errors
+    }
+
+    const usernameSafe = encodeURIComponent(usernameResolved)
+    const url = `${API_BASE}/profile-details/${usernameSafe}?api_key=${apiKey}`
     const options = {method: 'GET'}
 
     try {
-      const response = await fetch(GitHubUserProfileUrl, options)
+      const response = await fetch(url, options)
       if (response.ok) {
         const data = await response.json()
+        // Guard against unexpected API response structure
         const updatedData = {
-          avatarUrl: data.avatar_url,
-          bio: data.bio,
-          blog: data.blog,
-          company: data.company,
-          createdAt: data.created_at,
-          email: data.email,
-          eventsUrl: data.events_url,
-          followers: data.followers,
-          followersUrl: data.followers_url,
-          following: data.following,
-          followingUrl: data.following_url,
-          gistsUrl: data.gists_url,
-          gravatarId: data.gravatar_id,
-          hireable: data.hireable,
-          htmlUrl: data.html_url,
-          id: data.id,
-          location: data.location,
-          login: data.login,
-          name: data.name,
-          nodeId: data.node_id,
-          organizationsUrl: data.organizations_url,
-          publicGists: data.public_gists,
-          publicRepos: data.public_repos,
-          receivedEventsUrl: data.received_events_url,
-          reposUrl: data.repos_url,
-          siteAdmin: data.site_admin,
-          starredUrl: data.starred_url,
-          subscriptionsUrl: data.subscriptions_url,
-          twitterUsername: data.twitter_username,
-          type: data.type,
-          updatedAt: data.updated_at,
-          url: data.url,
+          avatarUrl: data.avatar_url || '',
+          bio: data.bio || '',
+          blog: data.blog || '',
+          company: data.company || '',
+          createdAt: data.created_at || '',
+          email: data.email || '',
+          eventsUrl: data.events_url || '',
+          followers: data.followers || 0,
+          followersUrl: data.followers_url || '',
+          following: data.following || 0,
+          followingUrl: data.following_url || '',
+          gistsUrl: data.gists_url || '',
+          gravatarId: data.gravatar_id || '',
+          hireable: data.hireable || false,
+          htmlUrl: data.html_url || '',
+          id: data.id || '',
+          location: data.location || '',
+          login: data.login || '',
+          name: data.name || '',
+          nodeId: data.node_id || '',
+          organizationsUrl: data.organizations_url || '',
+          publicGists: data.public_gists || 0,
+          publicRepos: data.public_repos || 0,
+          receivedEventsUrl: data.received_events_url || '',
+          reposUrl: data.repos_url || '',
+          siteAdmin: data.site_admin || false,
+          starredUrl: data.starred_url || '',
+          subscriptionsUrl: data.subscriptions_url || '',
+          twitterUsername: data.twitter_username || '',
+          type: data.type || '',
+          updatedAt: data.updated_at || '',
+          url: data.url || '',
         }
+
         this.setState({
           profileDetails: [updatedData],
           apiStatus: apiStatusConstants.success,
+          errorMsg: '',
         })
       } else {
+        // Read json to show backend-provided error (if any)
+        let errText = 'Failed to fetch data.'
+        try {
+          const errData = await response.json()
+          if (errData && errData.error_msg) {
+            errText = errData.error_msg
+          }
+        } catch {
+          // ignore parse error
+        }
+
         this.setState({
-          errorMsg: 'Failed to fetch data.',
+          errorMsg: errText,
           apiStatus: apiStatusConstants.failure,
+          profileDetails: [],
         })
       }
     } catch (error) {
       this.setState({
         errorMsg: 'Something went wrong. Please try again later.',
         apiStatus: apiStatusConstants.failure,
+        profileDetails: [],
       })
     }
   }
 
   onClickSearch = username => {
-    if (username.trim() === '') {
+    // called from button with value from context
+    if (!username || username.trim() === '') {
       this.setState({
         errorMsg: 'Enter a valid GitHub username.',
         profileDetails: [],
         apiStatus: apiStatusConstants.initial,
       })
-    } else {
-      this.getGitHubUserProfileDetails(username)
+      return
     }
+    this.getGitHubUserProfileDetails(username.trim())
   }
 
   onClickTryAgain = () => {
+    // Reset to initial and clear context username using context API
     const {changeUserName} = this.context
     this.setState({
       apiStatus: apiStatusConstants.initial,
       errorMsg: '',
       profileDetails: [],
     })
-    changeUserName('')
+    if (typeof changeUserName === 'function') {
+      changeUserName('')
+    }
   }
 
   renderGithubDetailsOfProfile = () => {
     const {profileDetails} = this.state
-    const object = profileDetails[0]
+    const object = profileDetails[0] || {}
     const {
       avatarUrl,
       name,
@@ -127,7 +191,7 @@ class Home extends Component {
     return (
       <div data-testid="repoItem" className="repo-item">
         <div className="profileDetailsContainer">
-          <img src={avatarUrl} alt={name} className="avatar-url" />
+          <img src={avatarUrl} alt={name || login} className="avatar-url" />
           <p className="login">{login}</p>
           <h1 className="name">{name}</h1>
           <p className="bio">BIO</p>
@@ -188,7 +252,9 @@ class Home extends Component {
         alt="failure view"
         className="error-view"
       />
-      <p className="errorName">Something went wrong. Please try again.</p>
+      <p className="errorName">
+        {this.state.errorMsg || 'Something went wrong. Please try again.'}
+      </p>
       <button
         className="tryButton"
         type="button"
@@ -207,7 +273,8 @@ class Home extends Component {
 
   renderContent = () => {
     const {errorMsg, apiStatus, profileDetails} = this.state
-    if (errorMsg) {
+    if (errorMsg && apiStatus !== apiStatusConstants.inProgress) {
+      // show error message + failure view
       return (
         <>
           <p className="inputErrorMsg">{errorMsg}</p>
@@ -240,7 +307,9 @@ class Home extends Component {
     const {username, changeUserName} = this.context
 
     const onChangeUserName = event => {
-      changeUserName(event.target.value)
+      if (typeof changeUserName === 'function') {
+        changeUserName(event.target.value)
+      }
     }
 
     return (

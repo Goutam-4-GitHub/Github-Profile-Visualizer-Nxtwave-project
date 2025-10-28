@@ -1,14 +1,11 @@
 import {Component} from 'react'
-
 import {Link} from 'react-router-dom'
-
 import Loader from 'react-loader-spinner'
-
 import Header from '../Header'
-
 import RepositoryCard from '../RepositoryCard'
-
 import './index.css'
+
+const API_BASE = 'https://apis2.ccbp.in/gpv'
 
 const apiStatusConstants = {
   initial: 'INITIAL',
@@ -21,8 +18,14 @@ class Repository extends Component {
   state = {repositoriesList: [], apiStatus: apiStatusConstants.initial}
 
   componentDidMount() {
-    const {username} = this.props
-    if (username === '') {
+    const {username: propUser} = this.props
+    const propUserSafe = propUser || ''
+
+    const storedUser = localStorage.getItem('gpv_username') || ''
+    const effectiveUser =
+      propUserSafe && propUserSafe.trim() ? propUserSafe : storedUser
+
+    if (!effectiveUser) {
       this.renderNoDataFound()
     } else {
       this.getGitHubUserRepositoryDetails()
@@ -59,15 +62,31 @@ class Repository extends Component {
   })
 
   getGitHubUserRepositoryDetails = async () => {
-    const {username} = this.props
+    let {username} = this.props
+    if (!username) {
+      username = localStorage.getItem('gpv_username') || ''
+    }
 
     this.setState({apiStatus: apiStatusConstants.inProgress})
 
-    const apiKey = process.env.REACT_APP_GITHUB_API_KEY
-    const url = `https://apis2.ccbp.in/gpv/repos/${username}?api_key=${apiKey}`
-    const options = {
-      method: 'GET',
+    const apiKey = process.env.REACT_APP_GPV_API_KEY
+    const usernameSafe = encodeURIComponent(
+      (username || '').trim().toLowerCase(),
+    )
+
+    if (!apiKey) {
+      console.error('Define REACT_APP_GPV_API_KEY in .env')
+      this.setState({apiStatus: apiStatusConstants.failure})
+      return
     }
+    if (!usernameSafe) {
+      this.setState({apiStatus: apiStatusConstants.failure})
+      return
+    }
+
+    const url = `${API_BASE}/repos/${usernameSafe}?api_key=${apiKey}`
+    const options = {method: 'GET'}
+
     const response = await fetch(url, options)
     if (response.ok === true) {
       const data = await response.json()
@@ -84,7 +103,7 @@ class Repository extends Component {
         compareUrl: eachItem.compare_url,
         contentsUrl: eachItem.contents_url,
         contributorsUrl: eachItem.contributors_url,
-        createdAt: eachItem.crated_at,
+        createdAt: eachItem.created_at,
         defaultBranch: eachItem.default_branch,
         deploymentsUrl: eachItem.deployments_url,
         description: eachItem.description,
@@ -116,7 +135,7 @@ class Repository extends Component {
         keysUrl: eachItem.keys_url,
         labelsUrl: eachItem.labels_url,
         language: eachItem.language,
-        languages: eachItem.languages.map(each => ({
+        languages: (eachItem.languages || []).map(each => ({
           name: each.name,
           value: each.value,
         })),
@@ -155,7 +174,7 @@ class Repository extends Component {
         watchersCount: eachItem.watchers_count,
         webCommitSignOffRequired: eachItem.web_commit_signoff_required,
       }))
-      console.log(updatedData)
+
       this.setState({
         repositoriesList: updatedData,
         apiStatus: apiStatusConstants.success,
@@ -264,12 +283,16 @@ class Repository extends Component {
   )
 
   render() {
-    const {username} = this.props
+    const {username: propUsername} = this.props
+    const stored = localStorage.getItem('gpv_username') || ''
+    const resolvedUsername =
+      propUsername && propUsername.trim() ? propUsername : stored
+
     return (
       <>
         <Header />
         <div className="repositoriesContainer">
-          {username === ''
+          {resolvedUsername === ''
             ? this.renderNoDataFound()
             : this.renderGitRepositoryDetails()}
           {/* {this.renderGitRepositoryDetails()} */}
@@ -278,4 +301,5 @@ class Repository extends Component {
     )
   }
 }
+
 export default Repository

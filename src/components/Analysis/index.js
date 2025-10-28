@@ -1,22 +1,14 @@
 import {Component} from 'react'
-
 import {Link} from 'react-router-dom'
-
 import Loader from 'react-loader-spinner'
-
 import Header from '../Header'
-
 import LinearChart from '../LinearChart'
-
 import LanguageRepoCountPie from '../LangRepoCountPie'
-
 import LanguageCommitCountPie from '../LangCommitCountPie'
-
 import RepoCommitCountPie from '../RepoCommitCountPie'
-
-// import RepoCommitCountDescription from '../RepoCommitCountDescription'
-
 import './index.css'
+
+const API_BASE = 'https://apis2.ccbp.in/gpv'
 
 const apiStatusConstants = {
   initial: 'INITIAL',
@@ -29,8 +21,14 @@ class Analysis extends Component {
   state = {analysisList: {}, apiStatus: apiStatusConstants.initial}
 
   componentDidMount() {
-    const {username} = this.props
-    if (username === '') {
+    const {username: propUser} = this.props
+    const propUserSafe = propUser || ''
+
+    const stored = localStorage.getItem('gpv_username') || ''
+    const effectiveUser =
+      propUserSafe && propUserSafe.trim() ? propUserSafe : stored
+
+    if (!effectiveUser) {
       this.renderNoDataFound()
     } else {
       this.getGitHubUserAnalysisDetails()
@@ -38,22 +36,35 @@ class Analysis extends Component {
   }
 
   getGitHubUserAnalysisDetails = async () => {
-    const {username} = this.props
+    let {username} = this.props
+    if (!username) {
+      username = localStorage.getItem('gpv_username') || ''
+    }
 
     this.setState({apiStatus: apiStatusConstants.inProgress})
 
-    const apiKey = process.env.REACT_APP_GITHUB_API_KEY
-    const url = `https://apis2.ccbp.in/gpv/profile-summary/${username}?api_key=${apiKey}`
-    const options = {
-      method: 'GET',
+    const apiKey = process.env.REACT_APP_GPV_API_KEY
+    const usernameSafe = encodeURIComponent(
+      (username || '').trim().toLowerCase(),
+    )
+
+    if (!apiKey) {
+      console.error('Define REACT_APP_GPV_API_KEY in .env')
+      this.setState({apiStatus: apiStatusConstants.failure})
+      return
+    }
+    if (!usernameSafe) {
+      this.setState({apiStatus: apiStatusConstants.failure})
+      return
     }
 
+    const url = `${API_BASE}/profile-summary/${usernameSafe}?api_key=${apiKey}`
+    const options = {method: 'GET'}
     const response = await fetch(url, options)
 
     if (response.ok === true) {
       const data = await response.json()
       const updatedData = data
-      console.log(updatedData)
       this.setState({
         analysisList: updatedData,
         apiStatus: apiStatusConstants.success,
@@ -63,22 +74,34 @@ class Analysis extends Component {
     }
   }
 
+  descendingSort = (a, b) => b.value - a.value
+
   renderAnalysisSuccessView = () => {
     const {analysisList} = this.state
     const analysisListLength = Object.keys(analysisList).length === 0
+
+    if (analysisListLength) {
+      return (
+        <div className="noDataRepoAnalysisContainer">
+          <img
+            src="https://res.cloudinary.com/ddsn9feta/image/upload/v1719653254/Layer_3_1_jxjnnu.png"
+            alt="no analysis"
+            className="no-data-image"
+          />
+          <h1 className="noDataHeading">No Analysis Found!</h1>
+        </div>
+      )
+    }
+
     const {
       user,
       quarterCommitCount,
       langRepoCount,
       langCommitCount,
       repoCommitCount,
-      /* repoCommitCountDescriptions, */
     } = analysisList
     const {avatarUrl, login} = user
 
-    //   const repoCommitDescriptionKeys = Object.keys(repoCommitCountDescriptions)
-
-    /* 1. Data for quarterCommitCount that is for LinearChart */
     const quarterCommitData = []
     const quarterCommitKeyNames = Object.keys(quarterCommitCount)
     quarterCommitKeyNames.forEach(keyName => {
@@ -88,11 +111,8 @@ class Analysis extends Component {
       })
     })
     const quarterCommitSlicedData = quarterCommitData
-      .sort(this.descendingSort)
+      .sort((a, b) => b.commits - a.commits)
       .slice(0, Object.keys(quarterCommitCount).length)
-    console.log(quarterCommitSlicedData)
-
-    /* 2. Data for LangRepoCount that is "Repos Per Language" */
 
     const langRepoData = []
     const langRepoKeyNames = Object.keys(langRepoCount)
@@ -103,7 +123,6 @@ class Analysis extends Component {
       .sort(this.descendingSort)
       .slice(0, Object.keys(langRepoCount).length)
 
-    /* 3. Data for LangCommitCount that is fro "Commits Per Language" */
     const langCommitData = []
     const langCommitKeyNames = Object.keys(langCommitCount)
     langCommitKeyNames.forEach(keyName => {
@@ -113,65 +132,40 @@ class Analysis extends Component {
       .sort(this.descendingSort)
       .slice(0, Object.keys(langCommitCount).length)
 
-    /* 4. Data for repoCommitCount that is for "Commits Per Repo"  */
     const repoCommitData = []
-    const RepoCommitKeyNames = Object.keys(repoCommitCount)
-    RepoCommitKeyNames.forEach(keyName => {
+    const repoCommitKeyNames = Object.keys(repoCommitCount)
+    repoCommitKeyNames.forEach(keyName => {
       repoCommitData.push({name: keyName, value: repoCommitCount[keyName]})
     })
     const slicedData = repoCommitData.sort(this.descendingSort).slice(0, 10)
 
     return (
       <div className="AnalysisSuccessViewContainer">
-        {analysisListLength ? (
-          <div className="noDataRepoAnalysisContainer">
-            <img
-              src="https://res.cloudinary.com/ddsn9feta/image/upload/v1719653254/Layer_3_1_jxjnnu.png"
-              alt="no analysis"
-              className="no-data-image"
-            />
-            <h1 className="noDataHeading">No Analysis Found!</h1>
+        <div className="analysisHeadingContainer">
+          <h1 className="analysis">{login}</h1>
+          <img src={avatarUrl} alt={login} className="repoAvatarUrl" />
+        </div>
+        <div className="linearChartContainer">
+          <div>
+            <LinearChart quarterCommitCount={quarterCommitSlicedData} />
           </div>
-        ) : (
-          <>
-            <div className="analysisHeadingContainer">
-              <h1 className="analysis">{login}</h1>
-              <img src={avatarUrl} alt={login} className="repoAvatarUrl" />
-            </div>
-            <div className="linearChartContainer">
-              <div>
-                <LinearChart quarterCommitCount={quarterCommitSlicedData} />
-              </div>
-            </div>
-            <div className="langRepoCommitCountContainer">
-              <div className="pielanguageCountContainer">
-                <h1 className="pieLangCountHeadingRep">Language Per Repos</h1>
-                <LanguageRepoCountPie langRepoCount={langRepoSlicedData} />
-              </div>
-              <div className="pielCommitanguageCountContainer">
-                <h1 className="pieLangCountHeading">Language Per Commits</h1>
-                <LanguageCommitCountPie
-                  langCommitCount={langCommitSlicedData}
-                />
-              </div>
-            </div>
-            <div className="repoCommitDescContainer">
-              <div className="repoCommitContainer">
-                <h1 className="repoCommitHeading">Commits Per Repo (Top 10)</h1>
-                <RepoCommitCountPie repoCommitCount={slicedData} />
-              </div>
-              {/* <ul className="list">
-                {repoCommitDescriptionKeys.map(eachItem => (
-                  <RepoCommitCountDescription
-                    repoCommitCountDescriptions={repoCommitCountDescriptions}
-                    description={eachItem}
-                    key={eachItem}
-                  />
-                ))}
-              </ul> */}
-            </div>
-          </>
-        )}
+        </div>
+        <div className="langRepoCommitCountContainer">
+          <div className="pielanguageCountContainer">
+            <h1 className="pieLangCountHeadingRep">Language Per Repos</h1>
+            <LanguageRepoCountPie langRepoCount={langRepoSlicedData} />
+          </div>
+          <div className="pielCommitanguageCountContainer">
+            <h1 className="pieLangCountHeading">Language Per Commits</h1>
+            <LanguageCommitCountPie langCommitCount={langCommitSlicedData} />
+          </div>
+        </div>
+        <div className="repoCommitDescContainer">
+          <div className="repoCommitContainer">
+            <h1 className="repoCommitHeading">Commits Per Repo (Top 10)</h1>
+            <RepoCommitCountPie repoCommitCount={slicedData} />
+          </div>
+        </div>
       </div>
     )
   }
@@ -243,13 +237,18 @@ class Analysis extends Component {
   )
 
   render() {
-    const {username} = this.props
+    const {username: propUser} = this.props
+    const propUserSafe = propUser || ''
+
+    const stored = localStorage.getItem('gpv_username') || ''
+    const resolvedUser =
+      propUserSafe && propUserSafe.trim() ? propUserSafe : stored
 
     return (
       <>
         <Header />
         <div className="analysisContainer">
-          {username === '' ? (
+          {resolvedUser === '' ? (
             this.renderNoDataFound()
           ) : (
             <div className="testcaseContainer">
@@ -262,4 +261,5 @@ class Analysis extends Component {
     )
   }
 }
+
 export default Analysis

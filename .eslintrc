@@ -1,18 +1,32 @@
 {
+  "root": true,
   "env": {
     "browser": true,
-    "es2021": true
+    "es2021": true,
+    "node": true
   },
-  "parser": "babel-eslint",
-  "extends": ["react-app", "airbnb", "prettier"],
+  "parser": "@babel/eslint-parser",
   "parserOptions": {
-    "ecmaFeatures": {
-      "jsx": true
+    "requireConfigFile": false,
+    "babelOptions": {
+      "presets": ["@babel/preset-react"]
     },
-    "ecmaVersion": 12,
+    "ecmaFeatures": { "jsx": true },
+    "ecmaVersion": "latest",
     "sourceType": "module"
   },
-  "plugins": ["prettier"],
+  "extends": [
+    "react-app",
+    "plugin:react/recommended",
+    "plugin:jsx-a11y/recommended",
+    "plugin:prettier/recommended"
+  ],
+  "plugins": ["prettier", "react", "jsx-a11y"],
+  "settings": {
+    "react": {
+      "version": "detect"
+    }
+  },
   "overrides": [
     {
       "files": ["styledComponents.js"],
@@ -23,7 +37,7 @@
   ],
   "rules": {
     "prettier/prettier": "error",
-    "react/jsx-filename-extension": [1, {"extensions": [".js", ".jsx"]}],
+    "react/jsx-filename-extension": [1, { "extensions": [".js", ".jsx"] }],
     "react/state-in-constructor": "off",
     "react/react-in-jsx-scope": "off",
     "react/jsx-uses-react": "off",
